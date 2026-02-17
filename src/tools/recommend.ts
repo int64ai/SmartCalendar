@@ -67,11 +67,9 @@ export async function suggestOptimalTimes(
           const slotStart = new Date(currentTime);
           suggestions.push({
             date: dateStr,
-            start: slotStart.toISOString(),
-            end: new Date(
-              currentTime + durationMinutes * 60000,
-            ).toISOString(),
-            available_until: new Date(evStartMs).toISOString(),
+            start: toLocalISO(slotStart),
+            end: toLocalISO(new Date(currentTime + durationMinutes * 60000)),
+            available_until: toLocalISO(new Date(evStartMs)),
             score: calculateTimeScore(slotStart),
           });
         }
@@ -90,11 +88,9 @@ export async function suggestOptimalTimes(
         const slotStart = new Date(currentTime);
         suggestions.push({
           date: dateStr,
-          start: slotStart.toISOString(),
-          end: new Date(
-            currentTime + durationMinutes * 60000,
-          ).toISOString(),
-          available_until: dayEnd.toISOString(),
+          start: toLocalISO(slotStart),
+          end: toLocalISO(new Date(currentTime + durationMinutes * 60000)),
+          available_until: toLocalISO(dayEnd),
           score: calculateTimeScore(slotStart),
         });
       }
@@ -147,8 +143,8 @@ export async function proposeScheduleAdjustment(
         event_id: null,
         proposed: {
           title: newTitle,
-          start: newStart.toISOString(),
-          end: newEnd.toISOString(),
+          start: toLocalISO(newStart),
+          end: toLocalISO(newEnd),
         },
         reason: '충돌하는 일정이 없어 바로 생성 가능합니다.',
       },
@@ -222,8 +218,8 @@ function strategyMinimizeMoves(
         event_title: event.title,
         original: { start: event.start, end: event.end },
         proposed: {
-          start: proposedStart.toISOString(),
-          end: proposedEnd.toISOString(),
+          start: toLocalISO(proposedStart),
+          end: toLocalISO(proposedEnd),
         },
         reason: `'${newTitle}' 일정을 위해 '${event.title}'을(를) ${formatTimeDiff(new Date(event.start), proposedStart)} 이동`,
       });
@@ -245,8 +241,8 @@ function strategyMinimizeMoves(
       event_id: null,
       proposed: {
         title: newTitle,
-        start: newStart.toISOString(),
-        end: newEnd.toISOString(),
+        start: toLocalISO(newStart),
+        end: toLocalISO(newEnd),
       },
       reason: `'${newTitle}' 일정을 생성하고, 충돌하는 일정을 이동합니다.`,
     });
@@ -277,8 +273,8 @@ function strategyRespectPriority(
         event_title: event.title,
         original: { start: event.start, end: event.end },
         proposed: {
-          start: proposedStart.toISOString(),
-          end: proposedEnd.toISOString(),
+          start: toLocalISO(proposedStart),
+          end: toLocalISO(proposedEnd),
         },
         reason: `'${event.title}'(우선순위 ${event.priority})보다 '${newTitle}'(우선순위 ${newPriority})이 더 중요하여 이동`,
       });
@@ -321,8 +317,8 @@ function strategyKeepBuffer(
         event_title: event.title,
         original: { start: event.start, end: event.end },
         proposed: {
-          start: proposedStart.toISOString(),
-          end: proposedEnd.toISOString(),
+          start: toLocalISO(proposedStart),
+          end: toLocalISO(proposedEnd),
         },
         reason: `'${newTitle}' 후 ${bufferMinutes}분 여유를 두고 '${event.title}' 이동`,
       });

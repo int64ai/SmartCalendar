@@ -1,4 +1,5 @@
 import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 
 // Configure marked for GFM (tables, strikethrough) and line breaks
 marked.setOptions({
@@ -19,7 +20,8 @@ interface ChatMessageProps {
 }
 
 function formatContent(content: string): string {
-  return marked.parse(content, { async: false }) as string
+  const html = marked.parse(content, { async: false }) as string
+  return DOMPurify.sanitize(html)
 }
 
 function getRelativeTime(date: Date): string {

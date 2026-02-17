@@ -17,6 +17,14 @@ export async function createEvent(
   priority: number = 3,
 ): Promise<Record<string, unknown>> {
   try {
+    // Validate required fields
+    if (!title || title.trim() === '') {
+      return { success: false, error: '일정 제목을 입력해주세요.' };
+    }
+    if (new Date(start) >= new Date(end)) {
+      return { success: false, error: '종료 시간이 시작 시간보다 이후여야 합니다.' };
+    }
+
     // Validate category
     if (!Object.values(Category).includes(category as Category)) {
       return {

@@ -70,8 +70,8 @@ export async function getFreeSlots(
       const gapMinutes = (evStart - currentTime) / 60000;
       if (gapMinutes >= durationMinutes) {
         freeSlots.push({
-          start: new Date(currentTime).toISOString(),
-          end: new Date(evStart).toISOString(),
+          start: toLocalISO(new Date(currentTime)),
+          end: toLocalISO(new Date(evStart)),
         });
       }
     }
@@ -87,7 +87,7 @@ export async function getFreeSlots(
     const gapMinutes = (dayEndMs - currentTime) / 60000;
     if (gapMinutes >= durationMinutes) {
       freeSlots.push({
-        start: new Date(currentTime).toISOString(),
+        start: toLocalISO(new Date(currentTime)),
         end: dayEndISO,
       });
     }

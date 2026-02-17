@@ -50,6 +50,11 @@ export function parseTime(timeStr: string): [number, number] {
       `잘못된 시간 형식입니다: '${timeStr}'. HH:MM 형식을 사용하세요.`,
     );
   }
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    throw new Error(
+      `시간 범위 오류: '${timeStr}'. 00:00~23:59 사이여야 합니다.`,
+    );
+  }
   return [hour, minute];
 }
 

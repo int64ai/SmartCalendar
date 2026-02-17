@@ -18,6 +18,9 @@ let conversationMessages: AnthropicMessage[] = [];
 // Abort controller for cancellation
 let currentAbortController: AbortController | null = null;
 
+// Processing guard to prevent concurrent requests
+let isProcessing = false;
+
 // Singleton calendar instance
 const calendar = new DexieCalendar();
 
@@ -27,9 +30,23 @@ function sendToPanel(msg: SWToPanelMessage): void {
   });
 }
 
+const MAX_MESSAGE_LENGTH = 4000;
+
 async function handleChatRequest(
   payload: { message: string; calendarContext?: { viewing_date: string; view_type: string } },
 ): Promise<void> {
+  // Prevent concurrent requests
+  if (isProcessing) {
+    sendToPanel({ type: 'STREAM_ERROR', payload: { error: '이전 요청을 처리 중입니다. 잠시 기다려주세요.' } });
+    return;
+  }
+
+  // Validate message length
+  if (payload.message.length > MAX_MESSAGE_LENGTH) {
+    sendToPanel({ type: 'STREAM_ERROR', payload: { error: `메시지가 너무 깁니다 (최대 ${MAX_MESSAGE_LENGTH}자).` } });
+    return;
+  }
+
   // Get settings
   const { apiKey, model } = await getStorage();
 
@@ -37,6 +54,8 @@ async function handleChatRequest(
     sendToPanel({ type: 'STREAM_ERROR', payload: { error: 'API 키가 설정되지 않았습니다. 설정에서 Anthropic API 키를 입력해주세요.' } });
     return;
   }
+
+  isProcessing = true;
 
   // Signal start
   sendToPanel({ type: 'STREAM_START' });
@@ -96,10 +115,15 @@ async function handleChatRequest(
       sendToPanel({ type: 'STREAM_ERROR', payload: { error: '요청이 취소되었습니다.' } });
     } else {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      sendToPanel({ type: 'STREAM_ERROR', payload: { error: errorMessage } });
+      // Sanitize error: don't leak raw API responses or stack traces
+      const safeMessage = errorMessage.length > 200
+        ? errorMessage.slice(0, 200) + '...'
+        : errorMessage;
+      sendToPanel({ type: 'STREAM_ERROR', payload: { error: safeMessage } });
     }
   } finally {
     currentAbortController = null;
+    isProcessing = false;
   }
 }
 
