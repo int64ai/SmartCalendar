@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "SmartCalendar",
+  "version": "1.0.0",
+  "description": "AI 기반 자연어 캘린더 어시스턴트",
+  "permissions": ["sidePanel", "storage"],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "host_permissions": ["https://api.anthropic.com/*"],
+  "action": {
+    "default_title": "SmartCalendar",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

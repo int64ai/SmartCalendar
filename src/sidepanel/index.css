@@ -1,0 +1,112 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root, .dark {
+    --color-background: #0d0d0d;
+    --color-surface: #1a1a1a;
+    --color-surface-hover: #252525;
+    --color-surface-active: #2d2d2d;
+    --color-border: rgba(255,255,255,0.1);
+    --color-border-hover: rgba(255,255,255,0.15);
+    --color-text-primary: #ffffff;
+    --color-text-secondary: rgba(255,255,255,0.6);
+    --color-text-tertiary: rgba(255,255,255,0.4);
+  }
+
+  .light {
+    --color-background: #f8f9fa;
+    --color-surface: #ffffff;
+    --color-surface-hover: #f0f0f0;
+    --color-surface-active: #e8e8e8;
+    --color-border: rgba(0,0,0,0.1);
+    --color-border-hover: rgba(0,0,0,0.15);
+    --color-text-primary: #1a1a1a;
+    --color-text-secondary: rgba(0,0,0,0.6);
+    --color-text-tertiary: rgba(0,0,0,0.4);
+  }
+
+  html {
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background text-text-primary min-h-screen;
+    margin: 0;
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { @apply bg-transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-border-hover; }
+}
+
+@layer components {
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-background;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium
+           transition-all duration-150 ease-out
+           focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-background
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary { @apply btn bg-accent text-white hover:bg-accent-hover active:scale-[0.98]; }
+  .btn-secondary { @apply btn bg-surface text-text-primary border border-border hover:bg-surface-hover active:scale-[0.98]; }
+  .btn-ghost { @apply btn bg-transparent text-text-secondary hover:bg-surface-hover hover:text-text-primary active:scale-[0.98]; }
+
+  .card { @apply bg-surface rounded-xl border border-border; }
+
+  .input {
+    @apply w-full px-4 py-2.5 bg-surface border border-border rounded-lg
+           text-text-primary placeholder-text-tertiary
+           focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent
+           transition-colors duration-150;
+  }
+
+  .skeleton { @apply bg-surface-hover animate-pulse rounded; }
+
+  .chat-markdown { word-break: break-word; }
+  .chat-markdown > *:first-child { margin-top: 0; }
+  .chat-markdown > *:last-child { margin-bottom: 0; }
+  .chat-markdown p { margin: 0.4em 0; }
+  .chat-markdown h1 { font-size: 1.25em; font-weight: 700; margin: 0.6em 0 0.3em; }
+  .chat-markdown h2 { font-size: 1.15em; font-weight: 700; margin: 0.6em 0 0.3em; }
+  .chat-markdown h3 { font-size: 1.05em; font-weight: 600; margin: 0.5em 0 0.25em; }
+  .chat-markdown h4, .chat-markdown h5, .chat-markdown h6 { font-size: 1em; font-weight: 600; margin: 0.4em 0 0.2em; }
+  .chat-markdown ul { list-style-type: disc; padding-left: 1.5em; margin: 0.4em 0; }
+  .chat-markdown ol { list-style-type: decimal; padding-left: 1.5em; margin: 0.4em 0; }
+  .chat-markdown li { margin: 0.15em 0; }
+  .chat-markdown li > ul, .chat-markdown li > ol { margin: 0.1em 0; }
+  .chat-markdown code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.875em; padding: 0.15em 0.4em; border-radius: 0.25em; background: var(--color-surface-active); }
+  .chat-markdown pre { margin: 0.5em 0; padding: 0.75em 1em; border-radius: 0.5em; background: var(--color-surface-active); overflow-x: auto; }
+  .chat-markdown pre code { padding: 0; background: transparent; font-size: 0.85em; line-height: 1.5; }
+  .chat-markdown blockquote { border-left: 3px solid var(--color-border-hover); padding-left: 0.75em; margin: 0.4em 0; font-style: italic; color: var(--color-text-secondary); }
+  .chat-markdown a { color: var(--color-accent, #3b82f6); text-decoration: underline; text-underline-offset: 2px; }
+  .chat-markdown a:hover { opacity: 0.8; }
+  .chat-markdown hr { border: none; border-top: 1px solid var(--color-border); margin: 0.6em 0; }
+  .chat-markdown table { width: 100%; border-collapse: collapse; font-size: 0.9em; margin: 0.5em 0; }
+  .chat-markdown thead th { text-align: left; font-weight: 600; padding: 0.5em 0.75em; border-bottom: 2px solid var(--color-border); color: var(--color-text-secondary); white-space: nowrap; }
+  .chat-markdown tbody td { padding: 0.4em 0.75em; border-bottom: 1px solid var(--color-border); }
+  .chat-markdown tbody tr:nth-child(even) { background: var(--color-surface-hover); }
+  .chat-markdown tbody tr:hover { background: var(--color-surface-active); }
+  .chat-markdown img { max-width: 100%; border-radius: 0.5em; }
+  .chat-markdown strong { font-weight: 600; }
+  .chat-markdown del { opacity: 0.6; }
+}
+
+@layer utilities {
+  .text-gradient { @apply bg-clip-text text-transparent bg-gradient-to-r from-accent to-accent-hover; }
+  .glass { @apply bg-surface/80 backdrop-blur-xl; }
+}
