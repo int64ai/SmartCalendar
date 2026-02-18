@@ -3,6 +3,8 @@
 import type { Event } from '../shared/types';
 
 export interface ICalendarBase {
+  lastChangeSetId: string | null;
+
   getEvents(
     startDate: string,
     endDate: string,

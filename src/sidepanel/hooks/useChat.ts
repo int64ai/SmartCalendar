@@ -23,6 +23,7 @@ export function useChat() {
   const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null)
   const accumulatedRef = useRef('')
   const botMessageIdRef = useRef<string | null>(null)
+  const lastCalendarContextRef = useRef<{ viewing_date: string; view_type: string } | undefined>()
 
   useEffect(() => {
     const listener = (msg: { type: string; payload?: Record<string, unknown> }) => {
@@ -38,7 +39,6 @@ export function useChat() {
       } else if (msg.type === 'STREAM_TOOL') {
         setCurrentTool((msg.payload?.name as string) ?? null)
       } else if (msg.type === 'STREAM_DONE') {
-        // Use fullText from payload (since non-streaming), fallback to accumulated chunks
         const content = (msg.payload?.fullText as string) || accumulatedRef.current
         const id = botMessageIdRef.current
         if (id) {
@@ -48,16 +48,14 @@ export function useChat() {
         }
         setIsLoading(false)
         setCurrentTool(null)
+        setLastFailedMessage(null)
         botMessageIdRef.current = null
       } else if (msg.type === 'STREAM_ERROR') {
         const id = botMessageIdRef.current
         const errorMsg = (msg.payload?.error as string) ?? '오류가 발생했습니다.'
-        const userFriendly = errorMsg.includes('Bedrock') || errorMsg.includes('API') || errorMsg.includes('toolResult')
-          ? '일시적인 오류가 발생했습니다. 다시 시도해주세요.'
-          : errorMsg
         if (id) {
           setMessages(prev => prev.map(m =>
-            m.id === id ? { ...m, content: userFriendly, isStreaming: false, isError: true } : m
+            m.id === id ? { ...m, content: errorMsg, isStreaming: false, isError: true } : m
           ))
         }
         setIsLoading(false)
@@ -70,8 +68,10 @@ export function useChat() {
     return () => chrome.runtime.onMessage.removeListener(listener)
   }, [])
 
-  const sendMessage = useCallback((messageContent: string) => {
+  const sendMessage = useCallback((messageContent: string, calendarContext?: { viewing_date: string; view_type: string }) => {
     if (!messageContent.trim() || isLoading) return
+
+    lastCalendarContextRef.current = calendarContext
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -97,24 +97,41 @@ export function useChat() {
 
     chrome.runtime.sendMessage({
       type: 'CHAT_REQUEST',
-      payload: { message: messageContent.trim() }
+      payload: { message: messageContent.trim(), calendarContext }
     }).catch(() => { /* SW may be starting up */ })
   }, [isLoading])
 
   const retryMessage = useCallback(() => {
     if (!lastFailedMessage || isLoading) return
-    // Remove last error message
+
+    // Remove the error bot message AND the duplicate user message
+    // so the service worker re-adds the user message cleanly
     setMessages(prev => {
       const last = prev[prev.length - 1]
-      if (last?.isError) return prev.slice(0, -1)
+      if (last?.isError) {
+        const withoutError = prev.slice(0, -1)
+        // Also remove the user message right before it (to avoid duplicate)
+        const secondLast = withoutError[withoutError.length - 1]
+        if (secondLast?.role === 'user' && secondLast.content === lastFailedMessage) {
+          return withoutError.slice(0, -1)
+        }
+        return withoutError
+      }
       return prev
     })
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: lastFailedMessage,
+      timestamp: new Date()
+    }
 
     const botMessageId = (Date.now() + 1).toString()
     botMessageIdRef.current = botMessageId
     accumulatedRef.current = ''
 
-    setMessages(prev => [...prev, {
+    setMessages(prev => [...prev, userMessage, {
       id: botMessageId,
       role: 'bot',
       content: '',
@@ -126,7 +143,7 @@ export function useChat() {
 
     chrome.runtime.sendMessage({
       type: 'CHAT_REQUEST',
-      payload: { message: lastFailedMessage }
+      payload: { message: lastFailedMessage, calendarContext: lastCalendarContextRef.current }
     }).catch(() => { /* SW may be starting up */ })
   }, [lastFailedMessage, isLoading])
 

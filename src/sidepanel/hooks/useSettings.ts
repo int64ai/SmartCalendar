@@ -1,12 +1,39 @@
 import { useState, useEffect, useCallback } from 'react'
+import type { ProviderId } from '../../api/providers/types'
 
 export interface Settings {
-  apiKey: string
+  provider: ProviderId
   model: string
   theme: 'dark' | 'light' | 'system'
+  anthropicApiKey: string
+  openaiApiKey: string
+  geminiApiKey: string
+  bedrockAccessKeyId: string
+  bedrockSecretAccessKey: string
+  bedrockRegion: string
 }
 
-const DEFAULTS: Settings = { apiKey: '', model: 'claude-sonnet-4-20250514', theme: 'dark' }
+const DEFAULTS: Settings = {
+  provider: 'anthropic',
+  model: 'claude-sonnet-4-20250514',
+  theme: 'dark',
+  anthropicApiKey: '',
+  openaiApiKey: '',
+  geminiApiKey: '',
+  bedrockAccessKeyId: '',
+  bedrockSecretAccessKey: '',
+  bedrockRegion: 'us-east-1',
+}
+
+/** Check if the current provider has valid credentials */
+export function isSettingsConfigured(s: Settings): boolean {
+  switch (s.provider) {
+    case 'anthropic': return !!s.anthropicApiKey
+    case 'openai': return !!s.openaiApiKey
+    case 'gemini': return !!s.geminiApiKey
+    case 'bedrock': return !!(s.bedrockAccessKeyId && s.bedrockSecretAccessKey && s.bedrockRegion)
+  }
+}
 
 export function useSettings() {
   const [settings, setSettings] = useState<Settings>(DEFAULTS)

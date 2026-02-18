@@ -1,11 +1,11 @@
 /** Analysis tools (ported from analysis.py) */
 
-import type { DexieCalendar } from '../data/calendar';
+import type { ICalendarBase } from '../data/calendar-base';
 import type { Event } from '../shared/types';
 import { toLocalISO } from './date-utils';
 
 export async function checkConflicts(
-  calendar: DexieCalendar,
+  calendar: ICalendarBase,
   start: string,
   end: string,
 ): Promise<Event[]> {
@@ -35,7 +35,7 @@ export async function checkConflicts(
 }
 
 export async function findRelatedEvents(
-  calendar: DexieCalendar,
+  calendar: ICalendarBase,
   titleKeyword: string,
   limit: number = 10,
 ): Promise<Event[]> {
@@ -54,7 +54,7 @@ export async function findRelatedEvents(
 }
 
 export async function getEventContext(
-  calendar: DexieCalendar,
+  calendar: ICalendarBase,
   eventId: string,
   hoursBefore: number = 3,
   hoursAfter: number = 3,

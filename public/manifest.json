@@ -1,16 +1,27 @@
 {
   "manifest_version": 3,
   "name": "SmartCalendar",
-  "version": "1.0.0",
-  "description": "AI 기반 자연어 캘린더 어시스턴트",
-  "permissions": ["sidePanel", "storage"],
+  "version": "2.0.0",
+  "description": "AI 기반 Google Calendar 어시스턴트 — 자연어로 일정을 관리하세요",
+  "permissions": ["sidePanel", "storage", "identity"],
+  "oauth2": {
+    "client_id": "711141030756-irnr5j5j6ncfamn0jltjo74f8kmnq4fg.apps.googleusercontent.com",
+    "scopes": ["https://www.googleapis.com/auth/calendar"]
+  },
   "side_panel": {
     "default_path": "sidepanel.html"
   },
   "background": {
     "service_worker": "service-worker.js"
   },
-  "host_permissions": ["https://api.anthropic.com/*"],
+  "host_permissions": [
+    "https://www.googleapis.com/*",
+    "https://accounts.google.com/*",
+    "https://api.anthropic.com/*",
+    "https://api.openai.com/*",
+    "https://generativelanguage.googleapis.com/*",
+    "https://*.amazonaws.com/*"
+  ],
   "action": {
     "default_title": "SmartCalendar",
     "default_icon": {

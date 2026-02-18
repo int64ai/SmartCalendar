@@ -1,11 +1,11 @@
 /** Mutation tools (ported from mutation.py) */
 
-import type { DexieCalendar } from '../data/calendar';
-import type { Event } from '../shared/types';
+import type { ICalendarBase } from '../data/calendar-base';
+import type { Event, EventAttendee } from '../shared/types';
 import { Category } from '../shared/types';
 
 export async function createEvent(
-  calendar: DexieCalendar,
+  calendar: ICalendarBase,
   title: string,
   start: string,
   end: string,
@@ -15,6 +15,10 @@ export async function createEvent(
   location?: string,
   is_movable: boolean = true,
   priority: number = 3,
+  colorId?: string,
+  attendees?: EventAttendee[],
+  reminders?: { useDefault: boolean; overrides?: Array<{ method: 'email' | 'popup'; minutes: number }> },
+  recurrence?: string[],
 ): Promise<Record<string, unknown>> {
   try {
     // Validate required fields
@@ -44,6 +48,10 @@ export async function createEvent(
       tags: tags ?? [],
       is_movable,
       priority,
+      colorId,
+      attendees,
+      reminders,
+      recurrence,
     };
 
     const created = await calendar.createEvent(event);
@@ -66,7 +74,7 @@ export async function createEvent(
 }
 
 export async function updateEvent(
-  calendar: DexieCalendar,
+  calendar: ICalendarBase,
   eventId: string,
   changes: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
@@ -122,7 +130,7 @@ export async function updateEvent(
 }
 
 export async function deleteEvent(
-  calendar: DexieCalendar,
+  calendar: ICalendarBase,
   eventId: string,
 ): Promise<Record<string, unknown>> {
   try {

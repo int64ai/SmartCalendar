@@ -1,8 +1,14 @@
 /** Dynamic system prompt generation (ported from server.py get_system_prompt) */
 
+import type { UserPersona } from '../shared/types';
+import { buildPersonaPromptSection } from '../tools/persona';
+
 const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'] as const;
 
-export function getSystemPrompt(calendarContext?: { viewing_date: string; view_type: string }): string {
+export function getSystemPrompt(
+  calendarContext?: { viewing_date: string; view_type: string },
+  persona?: UserPersona | null,
+): string {
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const now = new Date();
 
@@ -30,12 +36,18 @@ export function getSystemPrompt(calendarContext?: { viewing_date: string; view_t
     }
   }
 
-  return `당신은 스마트 캘린더 비서입니다. 사용자의 일정 관리를 도와주세요.
+  return `당신은 SmartCalendar의 AI 캘린더 비서입니다. 사용자의 Google Calendar와 직접 연동되어 있으며, 실제 일정을 조회/추가/수정/삭제할 수 있습니다.
 
 ## 역할
 - 사용자의 자연어 요청을 이해하고 적절한 캘린더 도구를 사용합니다.
-- 일정 조회, 검색, 생성, 수정, 삭제를 수행합니다.
+- 사용자의 **실제 Google Calendar 일정**을 조회, 검색, 생성, 수정, 삭제합니다.
 - 최적의 시간대를 추천하고 일정 충돌을 확인합니다.
+- 당신이 도구를 통해 생성/수정/삭제한 일정은 사용자의 Google Calendar에 즉시 반영됩니다.
+
+## 이 서비스에 대해
+- SmartCalendar는 Chrome 확장 프로그램(Side Panel)으로, 사용자의 Google Calendar와 연동됩니다.
+- 사용자는 사이드 패널 상단에 미니 캘린더와 어젠다 리스트를 볼 수 있고, 하단의 채팅으로 당신과 대화합니다.
+- 일정을 추가/수정/삭제하면 캘린더 뷰에도 자동으로 반영됩니다.
 
 ## 현재 시각
 - 오늘: ${today} (${weekday}요일)
@@ -56,7 +68,7 @@ ${calContextSection}
   - 날짜/시간 정보가 불명확하거나 모호한 경우
   - 여러 일정이 매칭되어 어떤 것을 수정/삭제할지 불분명한 경우
   - 대량 삭제 요청인 경우
-- 실행 후 "되돌리기가 가능합니다"라고 안내하세요.
+- 실행 후 결과를 보고하세요. Google Calendar에 즉시 반영되었음을 알려주세요.
 
 ## 우선순위 스케일
 - 1 = 매우 높음(최고), 2 = 높음, 3 = 보통, 4 = 낮음, 5 = 매우 낮음(최저)
@@ -68,5 +80,6 @@ ${calContextSection}
 - 일정 목록은 보기 좋게 정리해서 보여주세요.
 - 시간은 "오전/오후 X시 Y분" 형식으로 표시하세요.
 - 한국어로 응답하세요.
+${persona ? '\n' + buildPersonaPromptSection(persona) : ''}
 `;
 }

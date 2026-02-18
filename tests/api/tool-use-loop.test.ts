@@ -1,17 +1,21 @@
 import { describe, it, expect, vi } from 'vitest';
 import { runToolUseLoop } from '../../src/api/tool-use-loop';
-import type { AnthropicMessage, AnthropicResponse, AnthropicToolDef } from '../../src/api/message-types';
+import type { AIProvider, ChatMessage, ChatResponse, ToolDef } from '../../src/api/providers/types';
 
-// Mock the anthropic client
-vi.mock('../../src/api/anthropic-client', () => ({
-  callAnthropic: vi.fn(),
-}));
-
-import { callAnthropic } from '../../src/api/anthropic-client';
-const mockedCallAnthropic = vi.mocked(callAnthropic);
+function createMockProvider(responses: ChatResponse[]): AIProvider {
+  let callIndex = 0;
+  return {
+    chat: vi.fn(async () => {
+      const response = responses[callIndex];
+      callIndex++;
+      if (!response) throw new Error('No more mock responses');
+      return response;
+    }),
+  };
+}
 
 describe('Tool Use Loop', () => {
-  const tools: AnthropicToolDef[] = [
+  const tools: ToolDef[] = [
     {
       name: 'test_tool',
       description: 'A test tool',
@@ -20,23 +24,20 @@ describe('Tool Use Loop', () => {
   ];
 
   it('should return text on end_turn', async () => {
-    const response: AnthropicResponse = {
-      id: 'msg_1',
-      type: 'message',
-      role: 'assistant',
-      content: [{ type: 'text', text: '안녕하세요!' }],
-      model: 'claude-sonnet-4-20250514',
-      stop_reason: 'end_turn',
-      usage: { input_tokens: 10, output_tokens: 5 },
-    };
-    mockedCallAnthropic.mockResolvedValueOnce(response);
+    const provider = createMockProvider([
+      {
+        content: [{ type: 'text', text: '안녕하세요!' }],
+        stopReason: 'end_turn',
+        usage: { inputTokens: 10, outputTokens: 5 },
+      },
+    ]);
 
-    const messages: AnthropicMessage[] = [
+    const messages: ChatMessage[] = [
       { role: 'user', content: [{ type: 'text', text: '안녕' }] },
     ];
 
     const result = await runToolUseLoop(
-      'test-key', 'claude-sonnet-4-20250514', 'system prompt',
+      provider, 'claude-sonnet-4-20250514', 'system prompt',
       messages, tools,
       async () => ({}),
     );
@@ -46,44 +47,31 @@ describe('Tool Use Loop', () => {
   });
 
   it('should execute tools and continue loop', async () => {
-    // First call: tool_use
-    const toolUseResponse: AnthropicResponse = {
-      id: 'msg_1',
-      type: 'message',
-      role: 'assistant',
-      content: [
-        { type: 'text', text: '도구를 사용하겠습니다.' },
-        { type: 'tool_use', id: 'tu_1', name: 'test_tool', input: {} },
-      ],
-      model: 'claude-sonnet-4-20250514',
-      stop_reason: 'tool_use',
-      usage: { input_tokens: 10, output_tokens: 20 },
-    };
-
-    // Second call: end_turn
-    const endTurnResponse: AnthropicResponse = {
-      id: 'msg_2',
-      type: 'message',
-      role: 'assistant',
-      content: [{ type: 'text', text: '완료했습니다.' }],
-      model: 'claude-sonnet-4-20250514',
-      stop_reason: 'end_turn',
-      usage: { input_tokens: 30, output_tokens: 10 },
-    };
-
-    mockedCallAnthropic
-      .mockResolvedValueOnce(toolUseResponse)
-      .mockResolvedValueOnce(endTurnResponse);
+    const provider = createMockProvider([
+      {
+        content: [
+          { type: 'text', text: '도구를 사용하겠습니다.' },
+          { type: 'tool_use', id: 'tu_1', name: 'test_tool', input: {} },
+        ],
+        stopReason: 'tool_use',
+        usage: { inputTokens: 10, outputTokens: 20 },
+      },
+      {
+        content: [{ type: 'text', text: '완료했습니다.' }],
+        stopReason: 'end_turn',
+        usage: { inputTokens: 30, outputTokens: 10 },
+      },
+    ]);
 
     const executeTool = vi.fn().mockResolvedValue({ result: 'ok' });
     const onToolCall = vi.fn();
 
-    const messages: AnthropicMessage[] = [
+    const messages: ChatMessage[] = [
       { role: 'user', content: [{ type: 'text', text: '도구 테스트' }] },
     ];
 
     const result = await runToolUseLoop(
-      'test-key', 'claude-sonnet-4-20250514', 'system prompt',
+      provider, 'claude-sonnet-4-20250514', 'system prompt',
       messages, tools,
       executeTool, onToolCall,
     );
@@ -96,40 +84,29 @@ describe('Tool Use Loop', () => {
   });
 
   it('should handle tool execution errors gracefully', async () => {
-    const toolUseResponse: AnthropicResponse = {
-      id: 'msg_1',
-      type: 'message',
-      role: 'assistant',
-      content: [
-        { type: 'tool_use', id: 'tu_1', name: 'test_tool', input: {} },
-      ],
-      model: 'claude-sonnet-4-20250514',
-      stop_reason: 'tool_use',
-      usage: { input_tokens: 10, output_tokens: 20 },
-    };
-
-    const endTurnResponse: AnthropicResponse = {
-      id: 'msg_2',
-      type: 'message',
-      role: 'assistant',
-      content: [{ type: 'text', text: '에러가 발생했습니다.' }],
-      model: 'claude-sonnet-4-20250514',
-      stop_reason: 'end_turn',
-      usage: { input_tokens: 30, output_tokens: 10 },
-    };
-
-    mockedCallAnthropic
-      .mockResolvedValueOnce(toolUseResponse)
-      .mockResolvedValueOnce(endTurnResponse);
+    const provider = createMockProvider([
+      {
+        content: [
+          { type: 'tool_use', id: 'tu_1', name: 'test_tool', input: {} },
+        ],
+        stopReason: 'tool_use',
+        usage: { inputTokens: 10, outputTokens: 20 },
+      },
+      {
+        content: [{ type: 'text', text: '에러가 발생했습니다.' }],
+        stopReason: 'end_turn',
+        usage: { inputTokens: 30, outputTokens: 10 },
+      },
+    ]);
 
     const executeTool = vi.fn().mockRejectedValue(new Error('tool failed'));
 
-    const messages: AnthropicMessage[] = [
+    const messages: ChatMessage[] = [
       { role: 'user', content: [{ type: 'text', text: 'test' }] },
     ];
 
     const result = await runToolUseLoop(
-      'test-key', 'claude-sonnet-4-20250514', 'system prompt',
+      provider, 'claude-sonnet-4-20250514', 'system prompt',
       messages, tools, executeTool,
     );
 

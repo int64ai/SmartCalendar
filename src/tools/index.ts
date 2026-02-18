@@ -1,10 +1,12 @@
 /** Tool definitions and dispatcher (ported from server.py) */
 
-import type { DexieCalendar } from '../data/calendar';
+import type { ICalendarBase } from '../data/calendar-base';
 import * as queryTools from './query';
 import * as mutationTools from './mutation';
 import * as analysisTools from './analysis';
 import * as recommendTools from './recommend';
+import * as personaTools from './persona';
+import { getPersona } from '../shared/storage';
 
 export interface ToolDefinition {
   name: string;
@@ -208,6 +210,48 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
           type: 'integer',
           description: '(선택) 우선순위 1(최고)~5(최저), 기본값: 3',
         },
+        colorId: {
+          type: 'string',
+          description: '(선택) Google Calendar 색상 ID (1~11). 1:라벤더, 2:세이지, 3:그레이프, 4:플라밍고, 5:바나나, 6:탠저린, 7:피콕, 8:그래파이트, 9:블루베리, 10:베이질, 11:토마토',
+        },
+        attendees: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              email: { type: 'string', description: '참석자 이메일 (필수)' },
+              displayName: { type: 'string', description: '(선택) 표시 이름' },
+              optional: { type: 'boolean', description: '(선택) 선택적 참석자 여부' },
+            },
+            required: ['email'],
+          },
+          description: '(선택) 참석자 목록',
+        },
+        reminders: {
+          type: 'object',
+          properties: {
+            useDefault: { type: 'boolean', description: '기본 알림 사용 여부' },
+            overrides: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  method: { type: 'string', enum: ['email', 'popup'], description: '알림 방식' },
+                  minutes: { type: 'integer', description: '일정 시작 몇 분 전 알림' },
+                },
+                required: ['method', 'minutes'],
+              },
+              description: '(선택) 커스텀 알림 목록',
+            },
+          },
+          required: ['useDefault'],
+          description: '(선택) 알림 설정. useDefault=true이면 기본 알림, false이면 overrides 사용',
+        },
+        recurrence: {
+          type: 'array',
+          items: { type: 'string' },
+          description: '(선택) 반복 규칙 (RRULE 형식). 예: ["RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR"], ["RRULE:FREQ=DAILY;COUNT=10"]',
+        },
       },
       required: ['title', 'start', 'end'],
     },
@@ -246,6 +290,48 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         location: {
           type: 'string',
           description: '(선택) 새 장소',
+        },
+        colorId: {
+          type: 'string',
+          description: '(선택) Google Calendar 색상 ID (1~11). 1:라벤더, 2:세이지, 3:그레이프, 4:플라밍고, 5:바나나, 6:탠저린, 7:피콕, 8:그래파이트, 9:블루베리, 10:베이질, 11:토마토',
+        },
+        attendees: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              email: { type: 'string', description: '참석자 이메일 (필수)' },
+              displayName: { type: 'string', description: '(선택) 표시 이름' },
+              optional: { type: 'boolean', description: '(선택) 선택적 참석자 여부' },
+            },
+            required: ['email'],
+          },
+          description: '(선택) 참석자 목록 (기존 목록을 완전히 대체)',
+        },
+        reminders: {
+          type: 'object',
+          properties: {
+            useDefault: { type: 'boolean', description: '기본 알림 사용 여부' },
+            overrides: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  method: { type: 'string', enum: ['email', 'popup'], description: '알림 방식' },
+                  minutes: { type: 'integer', description: '일정 시작 몇 분 전 알림' },
+                },
+                required: ['method', 'minutes'],
+              },
+              description: '(선택) 커스텀 알림 목록',
+            },
+          },
+          required: ['useDefault'],
+          description: '(선택) 알림 설정',
+        },
+        recurrence: {
+          type: 'array',
+          items: { type: 'string' },
+          description: '(선택) 반복 규칙 (RRULE 형식)',
         },
       },
       required: ['event_id'],
@@ -351,12 +437,56 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       required: ['change_set_id'],
     },
   },
+  {
+    name: 'analyze_user_patterns',
+    description:
+      '사용자의 과거 일정을 분석하여 루틴, 선호 시간대, 스케줄링 성향 등의 페르소나를 생성합니다. 사용자가 "내 패턴 분석해줘", "내 일정 습관 알려줘" 등을 요청했을 때 사용합니다.',
+    input_schema: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: 'update_persona',
+    description:
+      '사용자가 명시적으로 자신의 프로필 변경을 요청했을 때 페르소나를 업데이트합니다. 예: "출근 시간이 10시로 바뀌었어", "점심은 보통 1시에 먹어", "나는 일정 빡빡하게 잡는 걸 좋아해"',
+    input_schema: {
+      type: 'object',
+      properties: {
+        active_hours: {
+          type: 'object',
+          properties: {
+            work_start: { type: 'string', description: '출근 시간 (HH:MM)' },
+            work_end: { type: 'string', description: '퇴근 시간 (HH:MM)' },
+            lunch_start: { type: 'string', description: '점심 시작 (HH:MM)' },
+            lunch_end: { type: 'string', description: '점심 종료 (HH:MM)' },
+          },
+          description: '(선택) 활동 시간 변경',
+        },
+        scheduling_style: {
+          type: 'string',
+          enum: ['conservative', 'moderate', 'aggressive'],
+          description: '(선택) 스케줄링 성향. conservative=보수적/여유, moderate=보통, aggressive=공격적/빡빡',
+        },
+        buffer_preference: {
+          type: 'integer',
+          description: '(선택) 일정 간 선호 여유 시간 (분)',
+        },
+        reason: {
+          type: 'string',
+          description: '변경 사유 (사용자의 원래 요청을 요약)',
+        },
+      },
+      required: ['reason'],
+    },
+  },
 ];
 
 export async function executeTool(
   name: string,
   args: Record<string, unknown>,
-  calendar: DexieCalendar,
+  calendar: ICalendarBase,
 ): Promise<unknown> {
   switch (name) {
     case 'ping':
@@ -432,6 +562,10 @@ export async function executeTool(
         args.location as string | undefined,
         (args.is_movable as boolean) ?? true,
         (args.priority as number) ?? 3,
+        args.colorId as string | undefined,
+        args.attendees as Array<{ email: string; displayName?: string; optional?: boolean }> | undefined,
+        args.reminders as { useDefault: boolean; overrides?: Array<{ method: 'email' | 'popup'; minutes: number }> } | undefined,
+        args.recurrence as string[] | undefined,
       );
 
     case 'update_event': {
@@ -446,6 +580,10 @@ export async function executeTool(
         'tags',
         'is_movable',
         'priority',
+        'colorId',
+        'attendees',
+        'reminders',
+        'recurrence',
       ]) {
         if (key in args) {
           changes[key] = args[key];
@@ -478,11 +616,13 @@ export async function executeTool(
       if (args.buffer_minutes) {
         constraints.buffer_minutes = args.buffer_minutes;
       }
+      const persona = await getPersona();
       return recommendTools.suggestOptimalTimes(
         calendar,
         args.duration_minutes as number,
         args.preferred_dates as string[],
         Object.keys(constraints).length > 0 ? constraints : undefined,
+        persona,
       );
     }
 
@@ -513,6 +653,29 @@ export async function executeTool(
         success: false,
         error: `되돌릴 변경을 찾을 수 없습니다: ${changeSetId}`,
       };
+    }
+
+    case 'analyze_user_patterns':
+      return personaTools.analyzeUserPatterns(calendar);
+
+    case 'update_persona': {
+      const changes: Parameters<typeof personaTools.updatePersona>[0] = {};
+      if (args.active_hours) {
+        const ah = args.active_hours as Record<string, string>;
+        changes.activeHours = {};
+        if (ah.work_start) changes.activeHours.workStart = ah.work_start;
+        if (ah.work_end) changes.activeHours.workEnd = ah.work_end;
+        if (ah.lunch_start) changes.activeHours.lunchStart = ah.lunch_start;
+        if (ah.lunch_end) changes.activeHours.lunchEnd = ah.lunch_end;
+      }
+      if (args.scheduling_style) {
+        changes.schedulingStyle = args.scheduling_style as 'conservative' | 'moderate' | 'aggressive';
+      }
+      if (args.buffer_preference !== undefined) {
+        changes.bufferPreference = args.buffer_preference as number;
+      }
+      const updated = await personaTools.updatePersona(changes, args.reason as string);
+      return { success: true, persona: updated, message: '프로필이 업데이트되었습니다.' };
     }
 
     default:

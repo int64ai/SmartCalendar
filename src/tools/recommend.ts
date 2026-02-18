@@ -1,11 +1,19 @@
 /** Recommendation tools (ported from recommend.py) */
 
-import type { DexieCalendar } from '../data/calendar';
-import type { Event } from '../shared/types';
+import type { ICalendarBase } from '../data/calendar-base';
+import type { Event, UserPersona } from '../shared/types';
 import { Category } from '../shared/types';
 import { parseDate, parseTime, toLocalISO } from './date-utils';
 
-export function calculateTimeScore(dt: Date): number {
+function hhmmToMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h! * 60 + m!;
+}
+
+/**
+ * Hardcoded fallback when no persona exists.
+ */
+function defaultTimeScore(dt: Date): number {
   const hour = dt.getHours();
   if (hour >= 10 && hour <= 11) return 100;
   if (hour >= 14 && hour <= 15) return 95;
@@ -14,11 +22,77 @@ export function calculateTimeScore(dt: Date): number {
   return 50;
 }
 
+/**
+ * Persona-aware time scoring.
+ * Penalizes routine times, boosts preferred meeting times, respects active hours.
+ */
+function personalizedTimeScore(dt: Date, persona: UserPersona): number {
+  const mins = dt.getHours() * 60 + dt.getMinutes();
+  const { activeHours, routines, preferredMeetingTimes, schedulingStyle, bufferPreference } = persona;
+
+  const workStart = hhmmToMinutes(activeHours.workStart);
+  const workEnd = hhmmToMinutes(activeHours.workEnd);
+  const lunchStart = hhmmToMinutes(activeHours.lunchStart);
+  const lunchEnd = hhmmToMinutes(activeHours.lunchEnd);
+
+  // Outside active hours → low score
+  if (mins < workStart || mins >= workEnd) return 20;
+
+  // During lunch → low score (protect routine)
+  const lunchBuffer = schedulingStyle === 'conservative' ? Math.max(15, bufferPreference) : 10;
+  if (mins >= lunchStart - lunchBuffer && mins < lunchEnd + lunchBuffer) return 30;
+
+  let score = 70; // baseline within work hours
+
+  // Boost preferred meeting times
+  const hourStr = `${String(dt.getHours()).padStart(2, '0')}:00`;
+  if (preferredMeetingTimes.includes(hourStr)) {
+    score += 25;
+  }
+
+  // Penalize times that overlap with known routines
+  for (const r of routines) {
+    if (r.confidence < 0.3) continue;
+    const rStart = hhmmToMinutes(r.typicalStart);
+    const rEnd = hhmmToMinutes(r.typicalEnd);
+    const routineBuffer = schedulingStyle === 'conservative' ? Math.max(15, bufferPreference) : 10;
+    if (mins >= rStart - routineBuffer && mins < rEnd + routineBuffer) {
+      score -= Math.round(30 * r.confidence);
+      break;
+    }
+  }
+
+  // Scheduling style adjustments
+  const hour = dt.getHours();
+  if (schedulingStyle === 'conservative') {
+    // Conservative: strongly prefer mid-morning and early afternoon, penalize edges
+    if (hour >= 10 && hour <= 11) score += 15;
+    if (hour >= 14 && hour <= 15) score += 10;
+    if (hour === Math.floor(workStart / 60) || hour === Math.floor(workEnd / 60) - 1) score -= 10;
+  } else if (schedulingStyle === 'aggressive') {
+    // Aggressive: small general boost (any work-hour slot is fine)
+    score += 5;
+    if (hour >= 10 && hour <= 11) score += 5;
+  } else {
+    // Moderate: slight preference for mid-morning
+    if (hour >= 10 && hour <= 11) score += 10;
+    if (hour >= 14 && hour <= 15) score += 5;
+  }
+
+  return Math.max(10, Math.min(100, score));
+}
+
+export function calculateTimeScore(dt: Date, persona?: UserPersona | null): number {
+  if (persona) return personalizedTimeScore(dt, persona);
+  return defaultTimeScore(dt);
+}
+
 export async function suggestOptimalTimes(
-  calendar: DexieCalendar,
+  calendar: ICalendarBase,
   durationMinutes: number,
   preferredDates: string[],
   constraints?: Record<string, unknown>,
+  persona?: UserPersona | null,
 ): Promise<Record<string, unknown>[]> {
   const c = constraints ?? {};
   const timeRange = (c.time_range as string[]) ?? ['09:00', '18:00'];
@@ -70,7 +144,7 @@ export async function suggestOptimalTimes(
             start: toLocalISO(slotStart),
             end: toLocalISO(new Date(currentTime + durationMinutes * 60000)),
             available_until: toLocalISO(new Date(evStartMs)),
-            score: calculateTimeScore(slotStart),
+            score: calculateTimeScore(slotStart, persona),
           });
         }
       }
@@ -91,7 +165,7 @@ export async function suggestOptimalTimes(
           start: toLocalISO(slotStart),
           end: toLocalISO(new Date(currentTime + durationMinutes * 60000)),
           available_until: toLocalISO(dayEnd),
-          score: calculateTimeScore(slotStart),
+          score: calculateTimeScore(slotStart, persona),
         });
       }
     }
@@ -106,7 +180,7 @@ export async function suggestOptimalTimes(
 }
 
 export async function proposeScheduleAdjustment(
-  calendar: DexieCalendar,
+  calendar: ICalendarBase,
   newEvent: Record<string, unknown>,
   strategy: string = 'minimize_moves',
 ): Promise<Record<string, unknown>[]> {

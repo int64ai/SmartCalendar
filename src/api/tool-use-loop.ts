@@ -1,7 +1,6 @@
-/** Tool use loop — ported from server.py lines 388-447 */
+/** Tool use loop — provider-agnostic version */
 
-import type { AnthropicContent, AnthropicMessage, AnthropicToolDef } from './message-types';
-import { callAnthropic } from './anthropic-client';
+import type { AIProvider, ChatContent, ChatMessage, ToolDef } from './providers/types';
 import { MAX_TOOL_ITERATIONS } from '../shared/constants';
 
 export interface ToolUseLoopResult {
@@ -10,11 +9,11 @@ export interface ToolUseLoopResult {
 }
 
 export async function runToolUseLoop(
-  apiKey: string,
+  provider: AIProvider,
   model: string,
   systemPrompt: string,
-  messages: AnthropicMessage[],
-  tools: AnthropicToolDef[],
+  messages: ChatMessage[],
+  tools: ToolDef[],
   executeTool: (name: string, args: Record<string, unknown>) => Promise<unknown>,
   onToolCall?: (toolName: string) => void,
   signal?: AbortSignal,
@@ -25,26 +24,26 @@ export async function runToolUseLoop(
   while (iteration < MAX_TOOL_ITERATIONS) {
     iteration++;
 
-    const response = await callAnthropic(apiKey, model, systemPrompt, messages, tools, signal);
+    const response = await provider.chat({ model, system: systemPrompt, messages, tools, signal });
 
-    if (response.stop_reason === 'end_turn' || response.stop_reason === 'max_tokens') {
+    if (response.stopReason === 'end_turn' || response.stopReason === 'max_tokens') {
       const text = response.content
-        .filter((c): c is Extract<AnthropicContent, { type: 'text' }> => c.type === 'text')
+        .filter((c): c is Extract<ChatContent, { type: 'text' }> => c.type === 'text')
         .map((c) => c.text)
         .join('');
       return { text: text || '응답을 생성할 수 없습니다.', toolCalls: allToolCalls };
     }
 
-    if (response.stop_reason === 'tool_use') {
+    if (response.stopReason === 'tool_use') {
       // Add assistant message with the full content (text + tool_use blocks)
       messages.push({ role: 'assistant', content: response.content });
 
       // Extract tool_use blocks and execute each
       const toolUseBlocks = response.content.filter(
-        (c): c is Extract<AnthropicContent, { type: 'tool_use' }> => c.type === 'tool_use',
+        (c): c is Extract<ChatContent, { type: 'tool_use' }> => c.type === 'tool_use',
       );
 
-      const toolResults: AnthropicContent[] = [];
+      const toolResults: ChatContent[] = [];
 
       for (const toolBlock of toolUseBlocks) {
         allToolCalls.push({ name: toolBlock.name, input: toolBlock.input });
@@ -87,7 +86,7 @@ export async function runToolUseLoop(
   const lastText = messages
     .filter((m) => m.role === 'assistant')
     .flatMap((m) => m.content)
-    .filter((c): c is Extract<AnthropicContent, { type: 'text' }> => c.type === 'text')
+    .filter((c): c is Extract<ChatContent, { type: 'text' }> => c.type === 'text')
     .map((c) => c.text)
     .pop();
 

@@ -8,7 +8,7 @@
     "dev:bg": "vite build --config vite.background.config.ts --watch",
     "build:panel": "tsc --noEmit && vite build",
     "build:bg": "vite build --config vite.background.config.ts",
-    "build": "npm run build:panel && npm run build:bg && cp public/manifest.json dist/ && cp -r public/icons dist/",
+    "build": "npm run build:panel && npm run build:bg && node -e \"const fs=require('fs');fs.copyFileSync('public/manifest.json','dist/manifest.json');fs.cpSync('public/icons','dist/icons',{recursive:true})\"",
     "test": "vitest run",
     "test:watch": "vitest"
   },

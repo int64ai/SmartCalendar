@@ -5,6 +5,7 @@ import { useChat } from '../hooks/useChat'
 
 interface ChatPanelProps {
   onOpenSettings: () => void
+  calendarContext?: { viewing_date: string; view_type: string }
 }
 
 const TOOL_DISPLAY_NAMES: Record<string, string> = {
@@ -13,16 +14,22 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   'create_event': '일정 생성 중...',
   'update_event': '일정 수정 중...',
   'delete_event': '일정 삭제 중...',
+  'undo_event': '되돌리는 중...',
   'get_free_slots': '빈 시간 찾는 중...',
   'check_conflicts': '충돌 확인 중...',
+  'find_related_events': '관련 일정 검색 중...',
+  'get_event_context': '전후 일정 확인 중...',
   'suggest_optimal_times': '최적 시간 찾는 중...',
+  'propose_schedule_adjustment': '일정 조정 방안 분석 중...',
+  'analyze_user_patterns': '캘린더 패턴 분석 중...',
+  'update_persona': '프로필 업데이트 중...',
 }
 
 function getToolDisplayName(toolName: string): string {
   return TOOL_DISPLAY_NAMES[toolName] || `${toolName} 실행 중...`
 }
 
-export default function ChatPanel({ onOpenSettings }: ChatPanelProps) {
+export default function ChatPanel({ onOpenSettings, calendarContext }: ChatPanelProps) {
   const {
     messages,
     isLoading,
@@ -52,9 +59,9 @@ export default function ChatPanel({ onOpenSettings }: ChatPanelProps) {
 
   const handleSend = useCallback(() => {
     if (!input.trim() || isLoading) return
-    sendMessage(input.trim())
+    sendMessage(input.trim(), calendarContext)
     setInput('')
-  }, [input, isLoading, sendMessage])
+  }, [input, isLoading, sendMessage, calendarContext])
 
   const handleRetry = useCallback(() => {
     retryMessage()

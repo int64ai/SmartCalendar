@@ -1,12 +1,12 @@
 /** Query tools (ported from query.py) */
 
-import type { DexieCalendar } from '../data/calendar';
+import type { ICalendarBase } from '../data/calendar-base';
 import type { Event, TimeSlot } from '../shared/types';
 import { DEFAULT_WORK_HOURS } from '../shared/constants';
 import { parseDate, parseTime, toLocalISO } from './date-utils';
 
 export async function getEvents(
-  calendar: DexieCalendar,
+  calendar: ICalendarBase,
   startDate: string,
   endDate: string,
   category?: string,
@@ -22,7 +22,7 @@ export async function getEvents(
 }
 
 export async function searchEvents(
-  calendar: DexieCalendar,
+  calendar: ICalendarBase,
   query: string,
   startDate?: string,
   endDate?: string,
@@ -36,7 +36,7 @@ export async function searchEvents(
 }
 
 export async function getFreeSlots(
-  calendar: DexieCalendar,
+  calendar: ICalendarBase,
   date: string,
   durationMinutes: number,
   timeRange?: [string, string],
