@@ -90,5 +90,5 @@ export async function runToolUseLoop(
     .map((c) => c.text)
     .pop();
 
-  return { text: lastText ?? 'Tool 호출 횟수 초과. 요청을 다시 시도해주세요.', toolCalls: allToolCalls };
+  return { text: lastText ?? `도구 호출이 ${MAX_TOOL_ITERATIONS}회를 초과하여 중단되었습니다. 지금까지 처리된 내용은 반영되었으니, 나머지는 다시 요청해주세요.`, toolCalls: allToolCalls };
 }
